@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
-class Volvouserguides extends StatelessWidget {
+class volvouserguides extends StatelessWidget {
   // Define the headings and questions with their explanations
   final Map<String, List<Map<String, String>>> headingQuestions = {
     'Lubrication': [
@@ -256,6 +256,8 @@ The MAP (Manifold Absolute Pressure) sensor is a critical part of the fuel injec
 '''
       }
     ],
+
+    ///
   };
   @override
   Widget build(BuildContext context) {
@@ -325,8 +327,25 @@ class ExplanationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Explanation for: $question'),
+      //appBar: AppBar(
+      //  title: Text('Explanation for: $question'),
+      //),
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(kToolbarHeight),
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.purpleAccent, Colors.blue],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          title: Text('Explanation for: $question',
+              style: TextStyle(color: Colors.white)),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

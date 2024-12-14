@@ -2,7 +2,7 @@ import 'package:car_sae_app/volvofusediagram.dart';
 import 'package:car_sae_app/volvoownermanuals.dart';
 import 'package:car_sae_app/volvoownerreview.dart';
 import 'package:car_sae_app/volvoserviceandrepairmanuals.dart';
-import 'package:car_sae_app/volvouserguides.dart';
+import 'package:car_sae_app/volvouserguide.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -115,7 +115,7 @@ class VolvoScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => Volvouserguides()),
+                          builder: (context) => volvouserguides()),
                     );
                   },
                   gradient: const LinearGradient(

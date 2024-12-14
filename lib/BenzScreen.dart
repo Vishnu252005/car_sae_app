@@ -1,9 +1,13 @@
 import 'package:car_sae_app/benzfuzediagram.dart';
-import 'package:car_sae_app/benzreport.dart';
+import 'package:car_sae_app/benzownermanual.dart';
+import 'package:car_sae_app/benzownersreview.dart';
+import 'package:car_sae_app/benzserviceandrepairmanuals.dart';
+import 'package:car_sae_app/benzuserguide.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'Raisedgradientbutton.dart';
+import 'volvouserguide.dart';
 
 class BenzScreen extends StatelessWidget {
   @override
@@ -44,7 +48,8 @@ class BenzScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => benzreport()),
+                      MaterialPageRoute(
+                          builder: (context) => benzownerreview()),
                     );
                   },
                   gradient: const LinearGradient(
@@ -64,7 +69,13 @@ class BenzScreen extends StatelessWidget {
                 height: 50,
                 child: RaisedGradientButton(
                   key: UniqueKey(), // Provide a unique key or your desired key
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => benzownermanual()),
+                    );
+                  },
                   gradient: const LinearGradient(
                     colors: <Color>[Colors.blueAccent, Colors.green],
                   ),
@@ -82,7 +93,11 @@ class BenzScreen extends StatelessWidget {
                 child: RaisedGradientButton(
                   key: UniqueKey(), // Provide a unique key or your desired key
                   onPressed: () {
-                    // Handle button press
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => benzserviceandrepairmanuals()),
+                    );
                   },
                   gradient: const LinearGradient(
                     colors: <Color>[Colors.blueAccent, Colors.green],
@@ -101,7 +116,10 @@ class BenzScreen extends StatelessWidget {
                 child: RaisedGradientButton(
                   key: UniqueKey(), // Provide a unique key or your desired key
                   onPressed: () {
-                    // Handle button press
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => benzuserguides()),
+                    );
                   },
                   gradient: const LinearGradient(
                     colors: <Color>[Colors.blueAccent, Colors.green],
