@@ -1,5 +1,6 @@
 import 'package:car_sae_app/VolvoScreen.dart';
 import 'package:car_sae_app/BenzScreen.dart';
+import 'package:car_sae_app/communitychat.dart';
 import 'package:flutter/material.dart';
 
 class Screen1 extends StatefulWidget {
@@ -77,6 +78,15 @@ class _Screen1State extends State<Screen1> {
               icon: const Icon(Icons.person), // Profile icon
               onPressed: () {
                 // Add functionality for profile (optional)
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.chat), // Community icon
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CommunityChat()),
+                );
               },
             ),
           ],
