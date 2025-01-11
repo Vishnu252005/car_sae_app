@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ai/screens/HomePage.dart';
 
 class HomeScreen extends StatelessWidget {
   @override
@@ -41,6 +42,17 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => HomePage()), // Navigate to ChatbotScreen
+          );
+        },
+        child: Icon(Icons.chat), // Chatbot icon
+        tooltip: 'Chat with us', // Tooltip for the button
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat, // Positioning the button to the right
     );
   }
 } 

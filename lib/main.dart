@@ -6,8 +6,14 @@ import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/services_screen.dart';
 import 'screens/discussions_screen.dart';
+import 'ai/constants/const.dart';
+import 'package:flutter_gemini/flutter_gemini.dart';
+
+import 'ai/screens/HomePage.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  Gemini.init(apiKey: "AIzaSyDqPfAa1C8sn2hDKLFpMTeiavIHg2vf_C8");
   runApp(MyApp());
 }
 
