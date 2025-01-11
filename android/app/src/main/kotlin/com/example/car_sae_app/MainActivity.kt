@@ -1,4 +1,4 @@
-package com.example.car_sae_app
+package com.vishnumeta.cardo
 
 import io.flutter.embedding.android.FlutterActivity
 

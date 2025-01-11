@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "car_sae_app" "\0"
+            VALUE "CompanyName", "com.vishnumeta" "\0"
+            VALUE "FileDescription", "cardo" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "car_sae_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "car_sae_app.exe" "\0"
-            VALUE "ProductName", "car_sae_app" "\0"
+            VALUE "InternalName", "cardo" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2024 com.vishnumeta. All rights reserved." "\0"
+            VALUE "OriginalFilename", "cardo.exe" "\0"
+            VALUE "ProductName", "cardo" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

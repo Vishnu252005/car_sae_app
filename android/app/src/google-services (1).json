@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "671268862685",
+    "project_id": "cardo-7956a",
+    "storage_bucket": "cardo-7956a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:671268862685:android:8f3ada772ddd0ed73ef934",
+        "android_client_info": {
+          "package_name": "com.vishnumeta.cardo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_l95-ZmVj2M4xW6aiQ1wf-0omPB8LUXk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

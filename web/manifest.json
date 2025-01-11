@@ -1,6 +1,6 @@
 {
-    "name": "car_sae_app",
-    "short_name": "car_sae_app",
+    "name": "cardo",
+    "short_name": "cardo",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
