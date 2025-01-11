@@ -4,6 +4,8 @@ import 'screens/profile_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/services_screen.dart';
+import 'screens/discussions_screen.dart';
 
 void main() {
   runApp(MyApp());
@@ -20,7 +22,17 @@ class MyApp extends StatelessWidget {
           selectedItemColor: Colors.blue,
           unselectedItemColor: Colors.grey,
         ),
+        brightness: Brightness.light,
       ),
+      darkTheme: ThemeData(
+        primarySwatch: Colors.blue,
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          selectedItemColor: Colors.blue,
+          unselectedItemColor: Colors.grey,
+        ),
+        brightness: Brightness.dark,
+      ),
+      themeMode: ThemeMode.system,
       initialRoute: '/',
       routes: {
         '/': (context) => SplashScreen(),
@@ -40,8 +52,9 @@ class _HomePageState extends State<HomePage> {
 
   final List<Widget> _pages = [
     HomeScreen(),
+    ServicesScreen(),
+    DiscussionsScreen(),
     ProfileScreen(),
-    SearchScreen(),
     SettingsScreen(),
   ];
 
@@ -62,12 +75,16 @@ class _HomePageState extends State<HomePage> {
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
+            icon: Icon(Icons.business),
+            label: 'Services',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
+            icon: Icon(Icons.forum),
+            label: 'Discussions',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
