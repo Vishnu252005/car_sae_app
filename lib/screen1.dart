@@ -1,6 +1,7 @@
 import 'package:car_sae_app/VolvoScreen.dart';
 import 'package:car_sae_app/BenzScreen.dart';
 import 'package:car_sae_app/communitychat.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class Screen1 extends StatefulWidget {
@@ -87,6 +88,12 @@ class _Screen1State extends State<Screen1> {
                   context,
                   MaterialPageRoute(builder: (context) => CommunityChat()),
                 );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout), // Community icon
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
               },
             ),
           ],

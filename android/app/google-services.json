@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "465031831392",
+    "project_id": "saeapp-68f85",
+    "storage_bucket": "saeapp-68f85.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:465031831392:android:2a344f65db537373a5c805",
+        "android_client_info": {
+          "package_name": "com.example.car_sae_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDa8Pa4ApLoICaGKVuu_5-JWJCvJz7aVJI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

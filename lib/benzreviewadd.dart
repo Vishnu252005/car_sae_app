@@ -7,14 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'Raisedgradientbutton.dart';
 
-class volvoownerreview extends StatefulWidget {
-  const volvoownerreview({super.key});
+class AddNewTask1 extends StatefulWidget {
+  const AddNewTask1({super.key});
 
   @override
-  State<volvoownerreview> createState() => _volvoownerreviewState();
+  State<AddNewTask1> createState() => _AddNewTask1State();
 }
 
-class _volvoownerreviewState extends State<volvoownerreview> {
+class _AddNewTask1State extends State<AddNewTask1> {
   final titleController = TextEditingController();
   final descriptionController = TextEditingController();
   DateTime selectedDate = DateTime.now();
@@ -30,7 +30,7 @@ class _volvoownerreviewState extends State<volvoownerreview> {
 
   Future<void> uploadToDB() async {
     try {
-      final data = await FirebaseFirestore.instance.collection("tasks2").add({
+      final data = await FirebaseFirestore.instance.collection("tasks").add({
         "title": titleController.text.trim(),
         "description": descriptionController.text.trim(),
         "creator": FirebaseAuth.instance.currentUser!.uid,
@@ -52,7 +52,7 @@ class _volvoownerreviewState extends State<volvoownerreview> {
           flexibleSpace: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.purpleAccent, Colors.blue],
+                colors: [Colors.blueAccent, Colors.green],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -135,7 +135,7 @@ class _volvoownerreviewState extends State<volvoownerreview> {
                       );
                     },
                     gradient: const LinearGradient(
-                      colors: <Color>[Colors.purpleAccent, Colors.blue],
+                      colors: <Color>[Colors.blueAccent, Colors.green],
                     ),
                     child: const Text(
                       'SUBMIT',
