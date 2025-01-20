@@ -92,6 +92,11 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                   onPressed: () async {
                     await createUserWithEmailAndPassword();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Account created successfully,Please press back')),
+                    );
                   },
                   key: UniqueKey(),
                   child: const Text(

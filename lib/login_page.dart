@@ -92,6 +92,11 @@ class _LoginPageState extends State<LoginPage> {
                   key: UniqueKey(),
                   onPressed: () async {
                     await loginUserWithEmailAndPassword();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Signed in'),
+                      ),
+                    );
                   },
                   child: const Text(
                     'SIGN IN',
