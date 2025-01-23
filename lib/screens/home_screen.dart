@@ -21,6 +21,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<TeamWithId> _eventTeams = [];
   bool _isLoading = false;
+  final Map<String, TextEditingController> _teamNameControllers = {};
+  bool _isEditingTeamName = false;
 
   @override
   void initState() {
@@ -145,6 +147,30 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateTeamName(String teamId, String newName) async {
+    final eventProvider = Provider.of<EventProvider>(context, listen: false);
+    final eventId = eventProvider.selectedEventId;
+    
+    if (eventId == null) return;
+
+    try {
+      await _firestore
+          .collection('events')
+          .doc(eventId)
+          .collection('teams')
+          .doc(teamId)
+          .update({'name': newName});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Team name updated successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating team name: $e')),
+      );
     }
   }
 
@@ -279,43 +305,96 @@ class _HomeScreenState extends State<HomeScreen> {
                   ListView.builder(
                     shrinkWrap: true,
                     physics: NeverScrollableScrollPhysics(),
-                              itemCount: _eventTeams.length,
+                    itemCount: _eventTeams.length,
                     itemBuilder: (context, index) {
+                      final team = _eventTeams[index];
+                      _teamNameControllers.putIfAbsent(
+                        team.id ?? 'team_$index',
+                        () => TextEditingController(text: team.name),
+                      );
+                      
                       return Card(
-                        margin: EdgeInsets.only(bottom: 16),
+                        margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                         child: Column(
                           children: [
-                                      ScoreInput(
-                                        team: _eventTeams[index],
-                                        numJudges: selectedEventData['numJudges'] ?? 1,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                            SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _saveTeamScores,
-                                style: ElevatedButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: _isLoading
-                                    ? SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      )
-                                    : Text('Save Scores'),
+                            ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Theme.of(context).primaryColor,
+                                child: Text('${index + 1}'),
                               ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: _isEditingTeamName
+                                        ? TextField(
+                                            controller: _teamNameControllers[team.id ?? 'team_$index'],
+                                            decoration: InputDecoration(
+                                              border: OutlineInputBorder(),
+                                              contentPadding: EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 8,
+                                              ),
+                                            ),
+                                          )
+                                        : Text(
+                                            team.name,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      _isEditingTeamName ? Icons.check : Icons.edit,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                    onPressed: () {
+                                      if (_isEditingTeamName) {
+                                        _updateTeamName(
+                                          team.id ?? 'team_$index',
+                                          _teamNameControllers[team.id ?? 'team_$index']!.text,
+                                        );
+                                      }
+                                      setState(() {
+                                        _isEditingTeamName = !_isEditingTeamName;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ScoreInput(
+                              team: team,
+                              numJudges: selectedEventData['numJudges'] ?? 1,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveTeamScores,
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text('Save Scores'),
+                    ),
                   ),
                 ],
               ),
@@ -324,6 +403,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _teamNameControllers.forEach((_, controller) => controller.dispose());
+    super.dispose();
   }
 }
 

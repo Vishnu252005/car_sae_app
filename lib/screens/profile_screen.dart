@@ -32,7 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = _auth.currentUser;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: user != null
@@ -55,25 +55,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: isDark ? Colors.white70 : Colors.blue.shade700,
           ),
           SizedBox(height: 24),
-          Text(
+                  Text(
             _isSignIn ? 'Sign In' : 'Sign Up',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.blue.shade900,
-            ),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.blue.shade900,
+                    ),
             textAlign: TextAlign.center,
-          ),
+                  ),
           SizedBox(height: 32),
-          TextFormField(
-            controller: _emailController,
-            decoration: InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email),
-              border: OutlineInputBorder(
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email),
+                      border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
+                      ),
+                      filled: true,
               fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
             ),
             keyboardType: TextInputType.emailAddress,
@@ -86,13 +86,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
               return null;
             },
-          ),
-          SizedBox(height: 16),
-          TextFormField(
-            controller: _passwordController,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: Icon(Icons.lock),
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordController,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: Icon(Icons.lock),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword ? Icons.visibility : Icons.visibility_off,
@@ -139,17 +139,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   )
                 : Text(_isSignIn ? 'Sign In' : 'Sign Up'),
-          ),
-          SizedBox(height: 16),
+                  ),
+                  SizedBox(height: 16),
           TextButton(
-            onPressed: () {
-              setState(() {
+                    onPressed: () {
+                      setState(() {
                 _isSignIn = !_isSignIn;
                 _formKey.currentState?.reset();
                 _emailController.clear();
                 _passwordController.clear();
-              });
-            },
+                      });
+                    },
             child: Text(
               _isSignIn 
                   ? 'Don\'t have an account? Sign Up'
@@ -210,28 +210,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final email = user.email ?? '';
 
         return Column(
-          children: [
-            Card(
-              elevation: 8,
+        children: [
+          Card(
+            elevation: 8,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Container(
+            child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
+              padding: EdgeInsets.all(20),
+              child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
                       backgroundColor: isDark ? Colors.blue.shade700 : Colors.blue.shade100,
-                      child: Icon(
+                          child: Icon(
                         Icons.person,
-                        size: 50,
+                            size: 50,
                         color: isDark ? Colors.white : Colors.blue.shade900,
                       ),
-                    ),
-                    SizedBox(height: 16),
-                    Text(
+                  ),
+                  SizedBox(height: 16),
+                  Text(
                       email,
-                      style: TextStyle(
+                    style: TextStyle(
                         fontSize: 18,
                         color: isDark ? Colors.white70 : Colors.grey.shade700,
                       ),
@@ -248,9 +248,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                       icon: Icon(Icons.add),
                       label: Text('Create Event'),
-                      style: ElevatedButton.styleFrom(
+                    style: ElevatedButton.styleFrom(
                         padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
+                      shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
@@ -266,17 +266,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
                       'Your Events',
-                      style: TextStyle(
+              style: TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.blue.shade900,
-                      ),
-                    ),
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.blue.shade900,
+              ),
+            ),
                     SizedBox(height: 16),
                     StreamBuilder<QuerySnapshot>(
                       stream: _firestore
@@ -293,12 +293,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return Center(
                             child: Text(
                               'No events created yet',
-                              style: TextStyle(
+              style: TextStyle(
                                 color: isDark ? Colors.white54 : Colors.grey.shade600,
-                              ),
-                            ),
-                          );
-                        }
+        ),
+      ),
+    );
+  }
 
                         return ListView.builder(
                           shrinkWrap: true,
@@ -315,8 +315,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               title: Text(
                                 eventData['name'] ?? 'Unnamed Event',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
@@ -330,15 +330,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 _formatDate(eventData['createdAt']),
                                 style: TextStyle(
                                   color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                ),
-                              ),
-                            );
+        ),
+      ),
+    );
                           },
                         );
                       },
-                    ),
-                  ],
-                ),
+            ),
+          ],
+        ),
               ),
             ),
             SizedBox(height: 20),
