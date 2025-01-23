@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/team.dart';
 
 class ScoreInput extends StatefulWidget {
-  final Team team;
+  final TeamWithId team;
   final int numJudges;
 
   const ScoreInput({
@@ -17,75 +17,40 @@ class ScoreInput extends StatefulWidget {
 }
 
 class _ScoreInputState extends State<ScoreInput> {
-  final List<TextEditingController> _controllers = [];
+  late List<TextEditingController> _controllers;
 
   @override
   void initState() {
     super.initState();
-    // Initialize controllers for each judge
-    for (int i = 0; i < widget.numJudges; i++) {
-      final score = i < widget.team.scores.length ? widget.team.scores[i] : 0.0;
-      _controllers.add(TextEditingController(text: score > 0 ? score.toString() : ''));
-    }
+    // Initialize controllers with existing scores or empty controllers
+    _controllers = List.generate(
+      widget.numJudges,
+      (index) => TextEditingController(
+        text: index < widget.team.scores.length 
+            ? widget.team.scores[index].toString() 
+            : '',
+      ),
+    );
+  }
+
+  void _updateScores() {
+    widget.team.scores = _controllers
+        .map((controller) => 
+            double.tryParse(controller.text) ?? 0.0)
+        .toList();
   }
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
+    _controllers.forEach((controller) => controller.dispose());
     super.dispose();
-  }
-
-  void _handleScoreChange(String value, int index) {
-    if (value.isEmpty) {
-      setState(() {
-        if (widget.team.scores.length <= index) {
-          widget.team.scores.add(0.0);
-        } else {
-          widget.team.scores[index] = 0.0;
-        }
-      });
-      return;
-    }
-
-    double? score = double.tryParse(value);
-    if (score != null) {
-      if (score > 100) {
-        setState(() {
-          if (widget.team.scores.length <= index) {
-            widget.team.scores.add(100.0);
-          } else {
-            widget.team.scores[index] = 100.0;
-          }
-          _controllers[index].text = '100';
-          _controllers[index].selection = TextSelection.fromPosition(
-            TextPosition(offset: '100'.length),
-          );
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Maximum score is 100'),
-            duration: Duration(seconds: 1),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      } else {
-        setState(() {
-          if (widget.team.scores.length <= index) {
-            widget.team.scores.add(score);
-          } else {
-            widget.team.scores[index] = score;
-          }
-        });
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Padding(
       padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,28 +60,59 @@ class _ScoreInputState extends State<ScoreInput> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white70 : Colors.grey.shade700,
             ),
           ),
           SizedBox(height: 8),
-          ...List.generate(widget.numJudges, (index) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: TextFormField(
-                controller: _controllers[index],
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'Judge ${index + 1} Score',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.score),
-                  helperText: 'Score must be between 0 and 100',
+          ListView.builder(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            itemCount: widget.numJudges,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: TextFormField(
+                  controller: _controllers[index],
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Judge ${index + 1}',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
+                  ),
+                  onChanged: (value) {
+                    _updateScores();
+                  },
                 ),
-                onChanged: (value) => _handleScoreChange(value, index),
-              ),
-            );
-          }),
+              );
+            },
+          ),
+          if (widget.team.scores.isNotEmpty) ...[
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total Score:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  ),
+                ),
+                Text(
+                  widget.team.totalScore.toStringAsFixed(2),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

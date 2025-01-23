@@ -22,14 +22,24 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TeamWithId> _eventTeams = [];
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Load event data when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final eventProvider = Provider.of<EventProvider>(context, listen: false);
+      if (eventProvider.selectedEventId != null) {
+        _loadEventData(eventProvider.selectedEventId!, eventProvider);
+      }
+    });
+  }
+
   Future<void> _loadEventData(String eventId, EventProvider eventProvider) async {
     try {
-      if (eventId == eventProvider.selectedEventId) return;
+      setState(() => _isLoading = true);
       
       final eventDoc = await _firestore.collection('events').doc(eventId).get();
       final eventData = eventDoc.data() as Map<String, dynamic>;
-      
-      eventProvider.setSelectedEvent(eventId, eventData);
       
       // Load existing team scores
       final teamsSnapshot = await _firestore
@@ -71,6 +81,8 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -92,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
       for (var team in _eventTeams) {
         final totalScore = team.scores.isNotEmpty 
-            ? team.scores.reduce((a, b) => a + b) / team.scores.length
+            ? team.scores.reduce((a, b) => a + b)
             : 0.0;
 
         final teamRef = team.id != null 
@@ -136,377 +148,181 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildEventSelector(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final eventProvider = Provider.of<EventProvider>(context);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('events')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Error loading events');
+        }
+
+        if (!snapshot.hasData) {
+          return CircularProgressIndicator();
+        }
+
+        final events = snapshot.data!.docs;
+        if (events.isEmpty) {
+          return Text('No events available');
+        }
+
+        return Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey.shade900 : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.1),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: eventProvider.selectedEventId,
+              isExpanded: true,
+              hint: Text(
+                'Select an Event',
+                style: TextStyle(
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                ),
+              ),
+              items: events.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return DropdownMenuItem<String>(
+                  value: doc.id,
+                  child: Text(
+                    data['name'] ?? 'Unnamed Event',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (String? eventId) {
+                if (eventId != null) {
+                  final eventData = events
+                      .firstWhere((doc) => doc.id == eventId)
+                      .data() as Map<String, dynamic>;
+                  eventProvider.setSelectedEvent(eventId, eventData);
+                  _loadEventData(eventId, eventProvider);
+                }
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final eventProvider = Provider.of<EventProvider>(context);
+    final selectedEventId = eventProvider.selectedEventId;
+    final selectedEventData = eventProvider.selectedEventData;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            expandedHeight: 200.0,
-            floating: false,
-            pinned: true,
-            elevation: widget.isScrolled ? 4 : 0,
-            backgroundColor: widget.isScrolled 
-                ? (isDark ? Color(0xFF1F1F1F) : Colors.white)
-                : Colors.transparent,
-            flexibleSpace: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final top = constraints.biggest.height;
-                final expandedHeight = 200.0;
-                final shrinkOffset = expandedHeight - top;
-                final progress = shrinkOffset / expandedHeight;
-                
-                return FlexibleSpaceBar(
-                  centerTitle: false,
-                  titlePadding: EdgeInsets.only(left: 16, bottom: 16),
-                  title: AnimatedOpacity(
-                    duration: Duration(milliseconds: 300),
-                    opacity: progress,
-                    child: Text(
-                      '',
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.blue.shade900,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isDark 
-                            ? [Color(0xFF1F1F1F), Color(0xFF121212)]
-                            : [Colors.blue.shade700, Colors.blue.shade500],
-                      ),
-                    ),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Gradient Background
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.blue.shade700,
-                                Colors.blue.shade500,
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Decorative Circles
-                        Positioned(
-                          right: -50,
-                          top: -50,
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.1),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: -30,
-                          bottom: -30,
-                          child: Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.1),
-                            ),
-                          ),
-                        ),
-                        // Add Event Selector
-                        Positioned(
-                          top: 40,
-                          left: 16,
-                          right: 16,
-                          child: StreamBuilder<QuerySnapshot>(
-                            stream: _firestore.collection('events')
-                                .orderBy('date', descending: true)
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData) {
-                                return Center(child: CircularProgressIndicator());
-                              }
-
-                              final events = snapshot.data!.docs;
-                              
-                              return Container(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    isExpanded: true,
-                                    value: eventProvider.selectedEventId,
-                                    hint: Text(
-                                      'Select Event',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    dropdownColor: isDark 
-                                        ? Colors.grey.shade900 
-                                        : Colors.white,
-                                    items: events.map((event) {
-                                      final eventData = 
-                                          event.data() as Map<String, dynamic>;
-                                      return DropdownMenuItem<String>(
-                                        value: event.id,
-                                        child: Text(
-                                          eventData['name'] ?? 'Unnamed Event',
-                                          style: TextStyle(
-                                            color: isDark 
-                                                ? Colors.white 
-                                                : Colors.black,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (String? eventId) {
-                                      if (eventId != null) {
-                                        _loadEventData(eventId, eventProvider);
-                                      }
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        // Central Content
-                        Align(
-                          alignment: Alignment.center,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withOpacity(0.2),
-                                ),
-                                child: Icon(
-                                  Icons.emoji_events_rounded,
-                                  size: 48,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 16),
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+          SliverToBoxAdapter(
+            child: _buildEventSelector(context),
+          ),
+          SliverFillRemaining(
+            child: _isLoading 
+                ? Center(child: CircularProgressIndicator())
+                : selectedEventId == null || selectedEventData == null
+                    ? Center(
                                 child: Text(
-                                  '${widget.teams.length} Teams Participating',
+                          'Please select an event',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            color: isDark ? Colors.white70 : Colors.grey.shade700,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Container(
+                      )
+                    : SingleChildScrollView(
               padding: EdgeInsets.all(16),
-              child: _buildTeamsSection(isDark),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                              selectedEventData['name'] ?? 'Unnamed Event',
+                    style: TextStyle(
+                                fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.blue.shade900,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Number of Judges: ${selectedEventData['numJudges'] ?? 0}',
+                              style: TextStyle(
+                                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                              ),
+                            ),
+                            SizedBox(height: 24),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                              itemCount: _eventTeams.length,
+                    itemBuilder: (context, index) {
+                      return Card(
+                        margin: EdgeInsets.only(bottom: 16),
+                        child: Column(
+                          children: [
+                                      ScoreInput(
+                                        team: _eventTeams[index],
+                                        numJudges: selectedEventData['numJudges'] ?? 1,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _saveTeamScores,
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                    : Text('Save Scores'),
+                              ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTeamsSection(bool isDark) {
-    final eventProvider = Provider.of<EventProvider>(context);
-    final selectedEventData = eventProvider.selectedEventData;
-
-    if (eventProvider.selectedEventId == null) {
-      return Center(
-        child: Text(
-          'Please select an event',
-          style: TextStyle(
-            fontSize: 18,
-            color: isDark ? Colors.white70 : Colors.grey.shade700,
-          ),
-        ),
-      );
-    }
-
-    if (selectedEventData == null) {
-      return Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Team Scores',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.grey.shade800,
-          ),
-        ),
-        SizedBox(height: 8),
-        Text(
-          'Event: ${selectedEventData['name']}',
-          style: TextStyle(
-            fontSize: 16,
-            color: isDark ? Colors.white70 : Colors.grey.shade600,
-          ),
-        ),
-        Text(
-          'Judges: ${selectedEventData['numJudges']}',
-          style: TextStyle(
-            fontSize: 16,
-            color: isDark ? Colors.white70 : Colors.grey.shade600,
-          ),
-        ),
-        SizedBox(height: 16),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          itemCount: _eventTeams.length,
-          itemBuilder: (context, index) {
-            return Card(
-              margin: EdgeInsets.only(bottom: 16),
-              elevation: 4,
-              color: isDark ? Color(0xFF1F1F1F) : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark 
-                          ? Colors.blue.shade900.withOpacity(0.2)
-                          : Colors.blue.shade50,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        topRight: Radius.circular(15),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: isDark 
-                              ? Colors.blue.shade900.withOpacity(0.3)
-                              : Colors.blue.shade100,
-                          child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              color: isDark 
-                                  ? Colors.blue.shade200
-                                  : Colors.blue.shade900,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: _eventTeams[index].name,
-                            onChanged: (value) {
-                              setState(() {
-                                _eventTeams[index].name = value;
-                              });
-                            },
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                            decoration: InputDecoration(
-                              labelText: 'Team Name',
-                              labelStyle: TextStyle(
-                                color: isDark 
-                                    ? Colors.blue.shade200
-                                    : Colors.blue.shade900,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              filled: true,
-                              fillColor: isDark 
-                                  ? Color(0xFF2A2A2A)
-                                  : Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ScoreInput(
-                    team: _eventTeams[index],
-                    numJudges: selectedEventData['numJudges'] ?? 1,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        SizedBox(height: 20),
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: ElevatedButton.icon(
-            onPressed: _isLoading ? null : _saveTeamScores,
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: Theme.of(context).primaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            icon: _isLoading 
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : Icon(Icons.save),
-            label: Text(
-              _isLoading ? 'Saving...' : 'Save Scores',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: 20),
-      ],
     );
   }
 }

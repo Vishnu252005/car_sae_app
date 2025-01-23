@@ -47,17 +47,21 @@ class StatisticsScreen extends StatelessWidget {
             return TeamScore.fromFirestore(data, doc.id);
           }).toList();
 
-          return SingleChildScrollView(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildScoreDistributionCard(context, teams),
-                SizedBox(height: 16),
-                _buildTopTeamsCard(context, teams),
-                SizedBox(height: 16),
-                _buildAverageScoresCard(context, teams),
-              ],
-            ),
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildScoreDistributionCard(context, teams),
+                    SizedBox(height: 16),
+                    _buildTopTeamsCard(context, teams),
+                    SizedBox(height: 16),
+                    _buildAverageScoresCard(context, teams),
+                  ]),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -67,6 +71,12 @@ class StatisticsScreen extends StatelessWidget {
   Widget _buildScoreDistributionCard(BuildContext context, List<TeamScore> teams) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
+    // Calculate max score for y-axis
+    final maxScore = teams.isEmpty 
+        ? 300.0 
+        : teams.map((t) => t.totalScore).reduce((a, b) => a > b ? a : b);
+    final roundedMaxScore = ((maxScore / 100).ceil() * 100).toDouble();
+
     return Card(
       elevation: 8,
       color: isDark ? Color(0xFF1F1F1F) : Colors.white,
@@ -102,7 +112,7 @@ class StatisticsScreen extends StatelessWidget {
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY: 300,
+                  maxY: roundedMaxScore,
                   minY: 0,
                   groupsSpace: 20,
                   barTouchData: BarTouchData(
@@ -149,9 +159,9 @@ class StatisticsScreen extends StatelessWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
-                        interval: 50,
+                        interval: roundedMaxScore / 6,
                         getTitlesWidget: (value, meta) {
-                          if (value % 100 == 0 || value == 50 || value == 150 || value == 250) {
+                          if (value % (roundedMaxScore / 3) == 0) {
                             return Text(
                               value.toInt().toString(),
                               style: TextStyle(
@@ -207,7 +217,7 @@ class StatisticsScreen extends StatelessWidget {
                           ),
                           backDrawRodData: BackgroundBarChartRodData(
                             show: true,
-                            toY: 300,
+                            toY: roundedMaxScore,
                             color: isDark 
                                 ? Colors.grey.shade800.withOpacity(0.5)
                                 : Colors.grey.shade100,
@@ -241,13 +251,23 @@ class StatisticsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Top Performers',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.blue.shade900,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Top Performers',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.blue.shade900,
+                  ),
+                ),
+                if (topTeams.isNotEmpty) Icon(
+                  Icons.emoji_events,
+                  color: Colors.amber,
+                  size: 28,
+                ),
+              ],
             ),
             SizedBox(height: 16),
             ...topTeams.asMap().entries.map((entry) {
@@ -255,25 +275,32 @@ class StatisticsScreen extends StatelessWidget {
               final team = entry.value;
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade100,
+                  backgroundColor: rank == 0 
+                      ? Colors.amber 
+                      : rank == 1 
+                          ? Colors.grey[300] 
+                          : Colors.brown[300],
                   child: Text(
                     '${rank + 1}',
                     style: TextStyle(
-                      color: Colors.blue.shade900,
+                      color: rank == 0 ? Colors.black : Colors.grey[800],
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
                 title: Text(
                   team.name,
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: rank == 0 ? Colors.amber : null,
+                  ),
                 ),
                 trailing: Text(
-                  '${team.totalScore}',
+                  team.totalScore.toStringAsFixed(1),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
+                    color: rank == 0 ? Colors.amber : Colors.blue.shade700,
                   ),
                 ),
               );
@@ -286,9 +313,9 @@ class StatisticsScreen extends StatelessWidget {
 
   Widget _buildAverageScoresCard(BuildContext context, List<TeamScore> teams) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final averageScore = teams.isEmpty
+    final totalScore = teams.isEmpty
         ? 0.0
-        : teams.map((t) => t.totalScore).reduce((a, b) => a + b) / teams.length;
+        : teams.map((t) => t.totalScore).reduce((a, b) => a + b);
 
     return Card(
       margin: EdgeInsets.all(16),
@@ -301,7 +328,7 @@ class StatisticsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Average Score',
+              'Total Score',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -319,7 +346,7 @@ class StatisticsScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    averageScore.toStringAsFixed(1),
+                    totalScore.toStringAsFixed(1),
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,

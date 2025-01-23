@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// Move enum to top level
-enum UserType { admin, user, none }
+import 'create_event_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -14,38 +12,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
+  bool _isSignIn = true; // Track whether we're showing sign in or sign up
   
-  // Remove _isLoggedIn since we'll use FirebaseAuth state
-  // bool _isLoggedIn = false;
-  
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  
-  UserType _userType = UserType.none;
-
-  @override
-  void initState() {
-    super.initState();
-    // Check user type when screen initializes
-    _checkUserType();
-  }
-
-  Future<void> _checkUserType() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      // Get user type from Firestore
-      DocumentSnapshot userDoc = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      setState(() {
-        _userType = userDoc.exists && userDoc.get('isAdmin') == true 
-            ? UserType.admin 
-            : UserType.user;
-      });
-    }
-  }
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -54,276 +26,136 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  // Update _handleSignIn method
-  Future<void> _handleSignIn() async {
-    setState(() => _isLoading = true);
-    
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-
-      // Get user type from Firestore
-      DocumentSnapshot userDoc = await _firestore
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
-
-      setState(() {
-        _userType = userDoc.exists && userDoc.get('isAdmin') == true 
-            ? UserType.admin 
-            : UserType.user;
-        _isLoading = false;
-      });
-    } on FirebaseAuthException catch (e) {
-      setState(() => _isLoading = false);
-      String errorMessage = 'An error occurred';
-      
-      if (e.code == 'user-not-found') {
-        errorMessage = 'No user found with this email';
-      } else if (e.code == 'wrong-password') {
-        errorMessage = 'Wrong password provided';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email address';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-    }
-  }
-
-  // Update _handleSignUp method
-  Future<void> _handleSignUp(String fullName, String email, String password) async {
-    setState(() => _isLoading = true);
-    
-    try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
-        'fullName': fullName,
-        'email': email,
-        'isAdmin': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      setState(() {
-        _userType = UserType.user;
-        _isLoading = false;
-      });
-    } on FirebaseAuthException catch (e) {
-      setState(() => _isLoading = false);
-      String errorMessage = 'An error occurred';
-      
-      if (e.code == 'weak-password') {
-        errorMessage = 'The password provided is too weak';
-      } else if (e.code == 'email-already-in-use') {
-        errorMessage = 'An account already exists for this email';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email address';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-    }
-  }
-
-  // Add sign out method
-  Future<void> _handleSignOut() async {
-    await _auth.signOut();
-    setState(() {
-      _userType = UserType.none;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Use FirebaseAuth to check if user is logged in
     final user = _auth.currentUser;
 
-    if (user == null) {
-      return _buildAuthScreen(isDark);
-    }
-
-    return _buildProfileScreen(isDark);
-  }
-
-  Widget _buildAuthScreen(bool isDark) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          bottom: TabBar(
-            tabs: [
-              Tab(text: 'Sign In'),
-              Tab(text: 'Sign Up'),
-            ],
-            indicatorColor: Colors.blue.shade700,
-            labelColor: isDark ? Colors.white : Colors.blue.shade900,
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildSignInForm(isDark),
-            _buildSignUpForm(isDark),
-          ],
-        ),
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: user != null
+            ? _buildUserProfile(user, isDark)
+            : _buildAuthForm(isDark),
       ),
     );
   }
 
-  Widget _buildSignInForm(bool isDark) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+  Widget _buildAuthForm(bool isDark) {
+    return Form(
+      key: _formKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // User Type Selection
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+          SizedBox(height: 40),
+          Icon(
+            Icons.account_circle,
+            size: 80,
+            color: isDark ? Colors.white70 : Colors.blue.shade700,
+          ),
+          SizedBox(height: 24),
+          Text(
+            _isSignIn ? 'Sign In' : 'Sign Up',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.blue.shade900,
             ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select User Type',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.blue.shade900,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildUserTypeButton(
-                          icon: Icons.admin_panel_settings,
-                          label: 'Admin',
-                          email: 'admin@admin.com',
-                          isDark: isDark,
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: _buildUserTypeButton(
-                          icon: Icons.person,
-                          label: 'User',
-                          email: 'user@user.com',
-                          isDark: isDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 32),
+          TextFormField(
+            controller: _emailController,
+            decoration: InputDecoration(
+              labelText: 'Email',
+              prefixIcon: Icon(Icons.email),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
+            ),
+            keyboardType: TextInputType.emailAddress,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your email';
+              }
+              if (!value.contains('@')) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: 16),
+          TextFormField(
+            controller: _passwordController,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              prefixIcon: Icon(Icons.lock),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
+            ),
+            obscureText: _obscurePassword,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your password';
+              }
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleSubmit,
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
+            child: _isLoading
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(_isSignIn ? 'Sign In' : 'Sign Up'),
           ),
-          SizedBox(height: 20),
-
-          // Login Form
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sign In',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.blue.shade900,
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
-                    ),
-                  ),
-                  SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _handleSignIn,
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        backgroundColor: Colors.blue.shade700,
-                      ),
-                      child: Text(
-                        'Sign In',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Center(
-                    child: Text(
-                      'Forgot Password?',
-                      style: TextStyle(
-                        color: Colors.blue.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+          SizedBox(height: 16),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _isSignIn = !_isSignIn;
+                _formKey.currentState?.reset();
+                _emailController.clear();
+                _passwordController.clear();
+              });
+            },
+            child: Text(
+              _isSignIn 
+                  ? 'Don\'t have an account? Sign Up'
+                  : 'Already have an account? Sign In',
+              style: TextStyle(
+                color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
               ),
             ),
           ),
@@ -332,594 +164,212 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildUserTypeButton({
-    required IconData icon,
-    required String label,
-    required String email,
-    required bool isDark,
-  }) {
-    final isSelected = _emailController.text == email;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _emailController.text = email;
-          _passwordController.text = label.toLowerCase() == 'admin' 
-              ? 'admin123' 
-              : 'user123';
-        });
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? Colors.blue.shade900 : Colors.blue.shade50)
-              : (isDark ? Colors.grey[800] : Colors.grey[100]),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? Colors.blue.shade700 : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 32,
-              color: isSelected
-                  ? Colors.blue.shade700
-                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
-            ),
-            SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? Colors.blue.shade700
-                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _handleSubmit() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      try {
+        if (_isSignIn) {
+          await _auth.signInWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+        } else {
+          final userCredential = await _auth.createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+          
+          // Create user document with isAdmin field defaulting to false
+          await _firestore.collection('users').doc(userCredential.user!.uid).set({
+            'email': _emailController.text.trim(),
+            'isAdmin': false,  // Default value
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
   }
 
-  Widget _buildSignUpForm(bool isDark) {
-    final TextEditingController _signUpEmailController = TextEditingController();
-    final TextEditingController _signUpPasswordController = TextEditingController();
-    final TextEditingController _signUpNameController = TextEditingController();
-    final TextEditingController _confirmPasswordController = TextEditingController();
-    
-    // Add form key for validation
-    final _formKey = GlobalKey<FormState>();
+  Widget _buildUserProfile(User user, bool isDark) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: _firestore.collection('users').doc(user.uid).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
+        final userData = snapshot.data?.data() as Map<String, dynamic>?;
+        final email = user.email ?? '';
+
+        return Column(
+          children: [
+            Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    TextFormField(
-                      controller: _signUpNameController,
-                      decoration: InputDecoration(
-                        labelText: 'Full Name',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _signUpEmailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email*',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Email is required';
-                        }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _signUpPasswordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Password*',
-                        prefixIcon: Icon(Icons.lock),
-                        border: OutlineInputBorder(),
-                        helperText: 'Minimum 6 characters',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Password is required';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _confirmPasswordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Confirm Password*',
-                        prefixIcon: Icon(Icons.lock_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please confirm your password';
-                        }
-                        if (value != _signUpPasswordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
-                    ),
-                    SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () {
-                                if (_formKey.currentState!.validate()) {
-                                  _handleSignUp(
-                                    _signUpNameController.text.trim(),
-                                    _signUpEmailController.text.trim(),
-                                    _signUpPasswordController.text,
-                                  );
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? CircularProgressIndicator(color: Colors.white)
-                            : Text('Sign Up'),
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: isDark ? Colors.blue.shade700 : Colors.blue.shade100,
+                      child: Icon(
+                        Icons.person,
+                        size: 50,
+                        color: isDark ? Colors.white : Colors.blue.shade900,
                       ),
                     ),
                     SizedBox(height: 16),
                     Text(
-                      '* Required fields',
+                      email,
                       style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
+                        fontSize: 18,
+                        color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CreateEventScreen(),
+                          ),
+                        );
+                      },
+                      icon: Icon(Icons.add),
+                      label: Text('Create Event'),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            SizedBox(height: 20),
+            Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your Events',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.blue.shade900,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: _firestore
+                          .collection('events')
+                          .where('createdBy', isEqualTo: user.uid)
+                          .orderBy('createdAt', descending: true)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        }
 
-  Widget _buildProfileScreen(bool isDark) {
-    final user = _auth.currentUser;
-    
-    return FutureBuilder<DocumentSnapshot>(
-      future: _firestore.collection('users').doc(user!.uid).get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
+                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'No events created yet',
+                              style: TextStyle(
+                                color: isDark ? Colors.white54 : Colors.grey.shade600,
+                              ),
+                            ),
+                          );
+                        }
 
-        if (snapshot.hasError) {
-          return Center(child: Text('Error loading profile'));
-        }
-
-        final userData = snapshot.data?.data() as Map<String, dynamic>?;
-        final fullName = userData?['fullName'] ?? 'User';
-        final email = userData?['email'] ?? user.email ?? '';
-        final isAdmin = userData?['isAdmin'] ?? false;
-
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Card(
-                elevation: 8,
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: snapshot.data!.docs.length,
+                          itemBuilder: (context, index) {
+                            final event = snapshot.data!.docs[index];
+                            final eventData = event.data() as Map<String, dynamic>;
+                            
+                            return ListTile(
+                              leading: Icon(
+                                Icons.event,
+                                color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                              ),
+                              title: Text(
+                                eventData['name'] ?? 'Unnamed Event',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Teams: ${eventData['numTeams'] ?? 0}',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                ),
+                              ),
+                              trailing: Text(
+                                _formatDate(eventData['createdAt']),
+                                style: TextStyle(
+                                  color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _handleSignOut,
+              icon: Icon(Icons.logout),
+              label: Text('Sign Out'),
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                backgroundColor: Colors.red.shade400,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: isAdmin
-                          ? [Colors.blue.shade900, Colors.blue.shade800]
-                          : [Colors.green.shade900, Colors.green.shade800],
-                    ),
-                  ),
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.white,
-                        child: CircleAvatar(
-                          radius: 47,
-                          backgroundColor: isAdmin
-                              ? Colors.blue.shade100
-                              : Colors.green.shade100,
-                          child: Icon(
-                            isAdmin ? Icons.admin_panel_settings : Icons.person,
-                            size: 50,
-                            color: isAdmin
-                                ? Colors.blue.shade900
-                                : Colors.green.shade900,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        fullName,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        email,
-                        style: TextStyle(
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              SizedBox(height: 20),
-
-              if (isAdmin) ...[
-                // Admin-specific cards
-                _buildAdminDashboard(isDark),
-                SizedBox(height: 20),
-                _buildEventManagement(isDark),
-              ] else ...[
-                // User-specific cards
-                _buildUserScorecard(isDark),
-                SizedBox(height: 20),
-                _buildUserEvents(isDark),
-              ],
-
-              // Common cards but with role-specific content
-              _buildPersonalInfo(isDark),
-              SizedBox(height: 20),
-
-              // Action Buttons
-              Row(
-                children: [
-                  if (isAdmin)
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          // Handle settings
-                        },
-                        icon: Icon(Icons.settings),
-                        label: Text('Settings'),
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (isAdmin)
-                    SizedBox(width: 16),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _handleSignOut,
-                      icon: Icon(Icons.logout),
-                      label: Text('Sign Out'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
   }
 
-  // Admin-specific widgets
-  Widget _buildAdminDashboard(bool isDark) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Admin Dashboard',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.blue.shade900,
-              ),
-            ),
-            Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                  icon: Icons.event,
-                  label: 'Events',
-                  value: '12',
-                  isDark: isDark,
-                ),
-                _buildStatItem(
-                  icon: Icons.groups,
-                  label: 'Teams',
-                  value: '48',
-                  isDark: isDark,
-                ),
-                _buildStatItem(
-                  icon: Icons.score,
-                  label: 'Scores',
-                  value: '144',
-                  isDark: isDark,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return 'No date';
+    if (timestamp is Timestamp) {
+      final date = timestamp.toDate();
+      return '${date.day}/${date.month}/${date.year}';
+    }
+    return 'Invalid date';
   }
 
-  Widget _buildEventManagement(bool isDark) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Event Management',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.blue.shade900,
-              ),
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(Icons.add_circle, color: Colors.green),
-              title: Text('Create New Event'),
-              trailing: Icon(Icons.arrow_forward_ios, size: 16),
-            ),
-            ListTile(
-              leading: Icon(Icons.people, color: Colors.blue),
-              title: Text('Manage Teams'),
-              trailing: Icon(Icons.arrow_forward_ios, size: 16),
-            ),
-            ListTile(
-              leading: Icon(Icons.assessment, color: Colors.orange),
-              title: Text('Scoring Criteria'),
-              trailing: Icon(Icons.arrow_forward_ios, size: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // User-specific widgets
-  Widget _buildUserScorecard(bool isDark) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'My Scorecard',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.green.shade900,
-              ),
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(Icons.emoji_events, color: Colors.amber),
-              title: Text('Current Event'),
-              subtitle: Text('Dance Competition 2024'),
-            ),
-            ListTile(
-              leading: Icon(Icons.star, color: Colors.orange),
-              title: Text('Your Score'),
-              subtitle: Text('85/100'),
-            ),
-            ListTile(
-              leading: Icon(Icons.leaderboard, color: Colors.blue),
-              title: Text('Ranking'),
-              subtitle: Text('3rd Place'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserEvents(bool isDark) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'My Events',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.green.shade900,
-              ),
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(Icons.event_available, color: Colors.green),
-              title: Text('Upcoming Event'),
-              subtitle: Text('Singing Competition - Next Week'),
-            ),
-            ListTile(
-              leading: Icon(Icons.history, color: Colors.grey),
-              title: Text('Past Event'),
-              subtitle: Text('Dance Competition - Last Month'),
-              trailing: Text('2nd Place', style: TextStyle(color: Colors.orange)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Common widget with role-specific content
-  Widget _buildPersonalInfo(bool isDark) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Personal Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : 
-                  (_userType == UserType.admin ? Colors.blue.shade900 : Colors.green.shade900),
-              ),
-            ),
-            Divider(),
-            ListTile(
-              leading: Icon(
-                Icons.badge,
-                color: _userType == UserType.admin ? Colors.blue : Colors.green,
-              ),
-              title: Text('Role'),
-              subtitle: Text(_userType == UserType.admin ? 'Event Administrator' : 'Participant'),
-              trailing: _userType == UserType.admin 
-                  ? Icon(Icons.verified, color: Colors.green)
-                  : null,
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.phone,
-                color: _userType == UserType.admin ? Colors.blue : Colors.green,
-              ),
-              title: Text('Contact'),
-              subtitle: Text('+1 234 567 8900'),
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.location_on,
-                color: _userType == UserType.admin ? Colors.blue : Colors.green,
-              ),
-              title: Text('Location'),
-              subtitle: Text('Manila, Philippines'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required bool isDark,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark 
-              ? Colors.blue.shade900.withOpacity(0.2)
-              : Colors.blue.shade50,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: isDark ? Colors.blue.shade200 : Colors.blue.shade900,
-          ),
-        ),
-        SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.blue.shade900,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
+  Future<void> _handleSignOut() async {
+    await _auth.signOut();
   }
 } 

@@ -271,6 +271,78 @@ class _EventScreenState extends State<EventScreen> {
     );
   }
 
+  Future<void> _showDeleteConfirmation(BuildContext context, String eventId, String eventName) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: isDark ? Colors.grey.shade900 : Colors.white,
+          title: Text(
+            'Delete Event',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "$eventName"?\nThis action cannot be undone.',
+            style: TextStyle(
+              color: isDark ? Colors.white70 : Colors.grey.shade800,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  // Delete the event
+                  await _firestore.collection('events').doc(eventId).delete();
+                  
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Event deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error deleting event: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text(
+                'Delete',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -567,15 +639,11 @@ class _EventScreenState extends State<EventScreen> {
                                             ),
                                             IconButton(
                                               icon: Icon(Icons.delete, color: Colors.red),
-                                              onPressed: () async {
-                                                await _firestore
-                                                    .collection('events')
-                                                    .doc(event.id)
-                                                    .delete();
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text('Event deleted')),
-                                                );
-                                              },
+                                              onPressed: () => _showDeleteConfirmation(
+                                                context,
+                                                event.id,
+                                                eventData['name'] ?? 'Unnamed Event',
+                                              ),
                                             ),
                                           ],
                                         ],

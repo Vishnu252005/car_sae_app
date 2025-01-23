@@ -135,7 +135,7 @@ class ResultsScreen extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          'Individual Scores: ${team.scores.map((s) => s.toStringAsFixed(1)).join(", ")}',
+                          'Individual Scores: ${team.scores.map((s) => s.toStringAsFixed(1)).join(", ")}\nTotal Score: ${team.totalScore.toStringAsFixed(1)}',
                         ),
                         trailing: Text(
                           team.totalScore.toStringAsFixed(1),

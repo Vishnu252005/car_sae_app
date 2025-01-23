@@ -1,21 +1,23 @@
 class Team {
-  String name;
-  List<double> scores;  // Change to List<double> and make it required
+  final String name;
+  final List<double> scores;
+  double get totalScore => scores.isEmpty ? 0 : scores.reduce((a, b) => a + b);
 
   Team({
     required this.name,
-    required this.scores,  // Add scores parameter
+    required this.scores,
   });
-
-  double get totalScore => scores.fold(0, (sum, score) => sum + score);
 }
 
-class TeamWithId extends Team {
-  final String? id;
-  
+class TeamWithId {
+  String? id;
+  String name;
+  List<double> scores;
+  double get totalScore => scores.isEmpty ? 0 : scores.reduce((a, b) => a + b);
+
   TeamWithId({
-    required String name,
-    required List<double> scores,
     this.id,
-  }) : super(name: name, scores: scores);
+    required this.name,
+    required this.scores,
+  });
 }
