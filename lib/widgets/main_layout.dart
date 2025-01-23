@@ -17,9 +17,6 @@ class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   bool _isScrolled = false;
   
-  // Remove the static team generation since teams will be created from events
-  List<Team> teams = [];
-
   @override
   void initState() {
     super.initState();
@@ -43,9 +40,9 @@ class _MainLayoutState extends State<MainLayout> {
     final theme = Theme.of(context);
 
     final List<Widget> _screens = [
-      HomeScreen(teams: teams, isScrolled: _isScrolled),
-      ResultsScreen(teams: teams),
-      StatisticsScreen(teams: teams),
+      HomeScreen(isScrolled: _isScrolled),
+      ResultsScreen(),
+      StatisticsScreen(),
       EventScreen(),
       ProfileScreen(),
     ];

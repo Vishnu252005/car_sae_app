@@ -5,12 +5,13 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../providers/event_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Team> teams;
   final bool isScrolled;
 
-  HomeScreen({required this.teams, required this.isScrolled});
+  HomeScreen({this.teams = const [], required this.isScrolled});
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -18,33 +19,127 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  String? _selectedEventId;
-  Map<String, dynamic>? _selectedEventData;
-  List<Team> _eventTeams = [];
+  List<TeamWithId> _eventTeams = [];
+  bool _isLoading = false;
 
-  Future<void> _loadEventData(String eventId) async {
+  Future<void> _loadEventData(String eventId, EventProvider eventProvider) async {
     try {
+      if (eventId == eventProvider.selectedEventId) return;
+      
       final eventDoc = await _firestore.collection('events').doc(eventId).get();
       final eventData = eventDoc.data() as Map<String, dynamic>;
       
-      setState(() {
-        _selectedEventData = eventData;
-        _eventTeams = List.generate(
-          eventData['numTeams'] ?? 0,
-          (index) => Team(
-            name: 'Team ${index + 1}',
-            scores: [],
-          ),
-        );
-      });
+      eventProvider.setSelectedEvent(eventId, eventData);
+      
+      // Load existing team scores
+      final teamsSnapshot = await _firestore
+          .collection('events')
+          .doc(eventId)
+          .collection('teams')
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      if (teamsSnapshot.docs.isNotEmpty) {
+        setState(() {
+          _eventTeams = teamsSnapshot.docs.map((doc) {
+            final data = doc.data();
+            return TeamWithId(
+              id: doc.id,
+              name: data['name'] ?? 'Unnamed Team',
+              scores: List<double>.from(data['scores'] ?? []),
+            );
+          }).toList();
+        });
+      } else {
+        // If no teams exist, create new ones
+        setState(() {
+          _eventTeams = List.generate(
+            eventData['numTeams'] ?? 0,
+            (index) => TeamWithId(
+              id: null,
+              name: 'Team ${index + 1}',
+              scores: [],
+            ),
+          );
+        });
+      }
     } catch (e) {
       print('Error loading event data: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading event data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveTeamScores() async {
+    final eventProvider = Provider.of<EventProvider>(context, listen: false);
+    final eventId = eventProvider.selectedEventId;
+    
+    if (eventId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select an event first')),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _isLoading = true);
+
+      final batch = _firestore.batch();
+      
+      for (var team in _eventTeams) {
+        final totalScore = team.scores.isNotEmpty 
+            ? team.scores.reduce((a, b) => a + b) / team.scores.length
+            : 0.0;
+
+        final teamRef = team.id != null 
+            ? _firestore
+                .collection('events')
+                .doc(eventId)
+                .collection('teams')
+                .doc(team.id)
+            : _firestore
+                .collection('events')
+                .doc(eventId)
+                .collection('teams')
+                .doc();
+
+        batch.set(teamRef, {
+          'name': team.name,
+          'scores': team.scores,
+          'totalScore': totalScore,
+          'eventId': eventId,
+          'timestamp': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
+      await batch.commit();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Scores saved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving scores: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final eventProvider = Provider.of<EventProvider>(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -155,7 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<String>(
                                     isExpanded: true,
-                                    value: _selectedEventId,
+                                    value: eventProvider.selectedEventId,
                                     hint: Text(
                                       'Select Event',
                                       style: TextStyle(
@@ -182,11 +277,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       );
                                     }).toList(),
                                     onChanged: (String? eventId) {
-                                      setState(() {
-                                        _selectedEventId = eventId;
-                                      });
                                       if (eventId != null) {
-                                        _loadEventData(eventId);
+                                        _loadEventData(eventId, eventProvider);
                                       }
                                     },
                                   ),
@@ -251,7 +343,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTeamsSection(bool isDark) {
-    if (_selectedEventId == null) {
+    final eventProvider = Provider.of<EventProvider>(context);
+    final selectedEventData = eventProvider.selectedEventData;
+
+    if (eventProvider.selectedEventId == null) {
       return Center(
         child: Text(
           'Please select an event',
@@ -263,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (_selectedEventData == null) {
+    if (selectedEventData == null) {
       return Center(child: CircularProgressIndicator());
     }
 
@@ -280,14 +375,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         SizedBox(height: 8),
         Text(
-          'Event: ${_selectedEventData!['name']}',
+          'Event: ${selectedEventData['name']}',
           style: TextStyle(
             fontSize: 16,
             color: isDark ? Colors.white70 : Colors.grey.shade600,
           ),
         ),
         Text(
-          'Judges: ${_selectedEventData!['numJudges']}',
+          'Judges: ${selectedEventData['numJudges']}',
           style: TextStyle(
             fontSize: 16,
             color: isDark ? Colors.white70 : Colors.grey.shade600,
@@ -371,13 +466,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   ScoreInput(
                     team: _eventTeams[index],
-                    numJudges: _selectedEventData!['numJudges'] ?? 1,
+                    numJudges: selectedEventData['numJudges'] ?? 1,
                   ),
                 ],
               ),
             );
           },
         ),
+        SizedBox(height: 20),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: ElevatedButton.icon(
+            onPressed: _isLoading ? null : _saveTeamScores,
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: Theme.of(context).primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            icon: _isLoading 
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : Icon(Icons.save),
+            label: Text(
+              _isLoading ? 'Saving...' : 'Save Scores',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 20),
       ],
     );
   }

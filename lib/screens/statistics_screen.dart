@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/team.dart';
+import '../models/team_score.dart';
+import '../providers/event_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class StatisticsScreen extends StatelessWidget {
-  final List<Team> teams;
-
-  StatisticsScreen({required this.teams});
+  StatisticsScreen();
 
   @override
   Widget build(BuildContext context) {
+    final eventProvider = Provider.of<EventProvider>(context);
+    final selectedEventId = eventProvider.selectedEventId;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
+    if (selectedEventId == null) {
+      return Center(child: Text('Please select an event'));
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -18,22 +26,45 @@ class StatisticsScreen extends StatelessWidget {
         elevation: 0,
         backgroundColor: isDark ? Color(0xFF1F1F1F) : Colors.blue.shade700,
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildScoreDistributionCard(context),
-            SizedBox(height: 16),
-            _buildTopTeamsCard(context),
-            SizedBox(height: 16),
-            _buildAverageScoresCard(context),
-          ],
-        ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('events')
+            .doc(selectedEventId)
+            .collection('teams')
+            .orderBy('totalScore', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          final teams = snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return TeamScore.fromFirestore(data, doc.id);
+          }).toList();
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildScoreDistributionCard(context, teams),
+                SizedBox(height: 16),
+                _buildTopTeamsCard(context, teams),
+                SizedBox(height: 16),
+                _buildAverageScoresCard(context, teams),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildScoreDistributionCard(BuildContext context) {
+  Widget _buildScoreDistributionCard(BuildContext context, List<TeamScore> teams) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Card(
@@ -71,7 +102,7 @@ class StatisticsScreen extends StatelessWidget {
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY: 100,
+                  maxY: 300,
                   minY: 0,
                   groupsSpace: 20,
                   barTouchData: BarTouchData(
@@ -118,15 +149,19 @@ class StatisticsScreen extends StatelessWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
+                        interval: 50,
                         getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toInt().toString(),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          );
+                          if (value % 100 == 0 || value == 50 || value == 150 || value == 250) {
+                            return Text(
+                              value.toInt().toString(),
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            );
+                          }
+                          return Text('');
                         },
                       ),
                     ),
@@ -140,11 +175,13 @@ class StatisticsScreen extends StatelessWidget {
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: 20,
+                    horizontalInterval: 50,
                     getDrawingHorizontalLine: (value) {
                       return FlLine(
-                        color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
-                        strokeWidth: 1,
+                        color: value % 100 == 0 
+                            ? (isDark ? Colors.grey.shade700 : Colors.grey.shade300)
+                            : (isDark ? Colors.grey.shade800.withOpacity(0.5) : Colors.grey.shade200.withOpacity(0.5)),
+                        strokeWidth: value % 100 == 0 ? 1.5 : 0.5,
                       );
                     },
                   ),
@@ -170,9 +207,9 @@ class StatisticsScreen extends StatelessWidget {
                           ),
                           backDrawRodData: BackgroundBarChartRodData(
                             show: true,
-                            toY: 100,
+                            toY: 300,
                             color: isDark 
-                                ? Colors.grey.shade800
+                                ? Colors.grey.shade800.withOpacity(0.5)
                                 : Colors.grey.shade100,
                           ),
                         ),
@@ -188,9 +225,9 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTopTeamsCard(BuildContext context) {
+  Widget _buildTopTeamsCard(BuildContext context, List<TeamScore> teams) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sortedTeams = List<Team>.from(teams)
+    final sortedTeams = List<TeamScore>.from(teams)
       ..sort((a, b) => b.totalScore.compareTo(a.totalScore));
     final topTeams = sortedTeams.take(3).toList();
 
@@ -247,7 +284,7 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAverageScoresCard(BuildContext context) {
+  Widget _buildAverageScoresCard(BuildContext context, List<TeamScore> teams) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final averageScore = teams.isEmpty
         ? 0.0
