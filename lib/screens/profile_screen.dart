@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Move enum to top level
 enum UserType { admin, user, none }
@@ -9,6 +11,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isLoading = false;
   bool _isLoggedIn = false;
   
   // Add controllers for email and password
@@ -29,24 +34,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  // Add sign in validation
-  void _handleSignIn() {
-    if (_emailController.text == _adminEmail && 
-        _passwordController.text == _adminPassword) {
+  // Update _handleSignIn method
+  Future<void> _handleSignIn() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Sign in with Firebase
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+      // Get user type from Firestore
+      DocumentSnapshot userDoc = await _firestore
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
       setState(() {
         _isLoggedIn = true;
-        _userType = UserType.admin;
+        _userType = userDoc.exists && userDoc.get('isAdmin') == true 
+            ? UserType.admin 
+            : UserType.user;
+        _isLoading = false;
       });
-    } else if (_emailController.text == _userEmail && 
-               _passwordController.text == _userPassword) {
-      setState(() {
-        _isLoggedIn = true;
-        _userType = UserType.user;
-      });
-    } else {
+    } on FirebaseAuthException catch (e) {
+      setState(() => _isLoading = false);
+      String errorMessage = 'An error occurred';
+      
+      if (e.code == 'user-not-found') {
+        errorMessage = 'No user found with this email';
+      } else if (e.code == 'wrong-password') {
+        errorMessage = 'Wrong password provided';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Invalid email address';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Invalid credentials.\nAdmin: admin@admin.com / admin123\nUser: user@user.com / user123'),
+          content: Text(errorMessage),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 4),
@@ -56,6 +82,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     }
+  }
+
+  // Add sign up method
+  Future<void> _handleSignUp(String fullName, String email, String password) async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Create user in Firebase Auth
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Store additional user data in Firestore
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'fullName': fullName,
+        'email': email,
+        'isAdmin': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      setState(() {
+        _isLoggedIn = true;
+        _userType = UserType.user;
+        _isLoading = false;
+      });
+    } on FirebaseAuthException catch (e) {
+      setState(() => _isLoading = false);
+      String errorMessage = 'An error occurred';
+      
+      if (e.code == 'weak-password') {
+        errorMessage = 'The password provided is too weak';
+      } else if (e.code == 'email-already-in-use') {
+        errorMessage = 'An account already exists for this email';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Invalid email address';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+  }
+
+  // Add sign out method
+  Future<void> _handleSignOut() async {
+    await _auth.signOut();
+    setState(() {
+      _isLoggedIn = false;
+      _userType = UserType.none;
+    });
   }
 
   @override
@@ -286,6 +371,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildSignUpForm(bool isDark) {
+    final TextEditingController _signUpEmailController = TextEditingController();
+    final TextEditingController _signUpPasswordController = TextEditingController();
+    final TextEditingController _signUpNameController = TextEditingController();
+    final TextEditingController _confirmPasswordController = TextEditingController();
+    
+    // Add form key for validation
+    final _formKey = GlobalKey<FormState>();
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -297,57 +390,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Padding(
               padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  TextFormField(
-                    decoration: InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm Password',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _isLoggedIn = true;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 48, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _signUpNameController,
+                      decoration: InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: Icon(Icons.person),
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                    child: Text('Sign Up'),
-                  ),
-                ],
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _signUpEmailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email*',
+                        prefixIcon: Icon(Icons.email),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Email is required';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _signUpPasswordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Password*',
+                        prefixIcon: Icon(Icons.lock),
+                        border: OutlineInputBorder(),
+                        helperText: 'Minimum 6 characters',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password is required';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm Password*',
+                        prefixIcon: Icon(Icons.lock_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your password';
+                        }
+                        if (value != _signUpPasswordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                if (_formKey.currentState!.validate()) {
+                                  _handleSignUp(
+                                    _signUpNameController.text.trim(),
+                                    _signUpEmailController.text.trim(),
+                                    _signUpPasswordController.text,
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? CircularProgressIndicator(color: Colors.white)
+                            : Text('Sign Up'),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      '* Required fields',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -485,12 +632,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SizedBox(width: 16),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _isLoggedIn = false;
-                      _userType = UserType.none;
-                    });
-                  },
+                  onPressed: _handleSignOut,
                   icon: Icon(Icons.logout),
                   label: Text('Sign Out'),
                   style: OutlinedButton.styleFrom(

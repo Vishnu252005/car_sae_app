@@ -5,10 +5,11 @@ import 'widgets/main_layout.dart';
 import 'providers/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'firebase_init.dart';
+
 void main() async {
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,);
   WidgetsFlutterBinding.ensureInitialized();
+  await FirebaseInit.initialize();
   final prefs = await SharedPreferences.getInstance();
   final isFirstTime = prefs.getBool('first_time') ?? true;
   
