@@ -8,9 +8,34 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../models/team_score.dart';
 import '../providers/event_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:flutter/services.dart';
 
 class ResultsScreen extends StatelessWidget {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<void> _generatePdf(List<TeamScore> teams) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            children: [
+              pw.Text('Results', style: pw.TextStyle(fontSize: 24)),
+              ...teams.map((team) => pw.Text('${team.name}: ${team.totalScore.toStringAsFixed(1)}')),
+            ],
+          );
+        },
+      ),
+    );
+
+    // Save the PDF file
+    final output = await getTemporaryDirectory();
+    final file = File("${output.path}/results.pdf");
+    await file.writeAsBytes(await pdf.save());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +48,33 @@ class ResultsScreen extends StatelessWidget {
     }
 
     return Scaffold(
+      appBar: AppBar(
+        title: Text('Results'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.picture_as_pdf),
+            onPressed: () async {
+              // Fetch teams again to ensure it's up to date
+              final snapshot = await _firestore
+                  .collection('events')
+                  .doc(selectedEventId)
+                  .collection('teams')
+                  .orderBy('totalScore', descending: true)
+                  .get();
+
+              final teams = snapshot.docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return TeamScore.fromFirestore(data, doc.id);
+              }).toList();
+
+              await _generatePdf(teams);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('PDF saved to device!')),
+              );
+            },
+          ),
+        ],
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('events')
