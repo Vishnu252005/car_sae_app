@@ -47,21 +47,32 @@ class StatisticsScreen extends StatelessWidget {
             return TeamScore.fromFirestore(data, doc.id);
           }).toList();
 
-          return CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildScoreDistributionCard(context, teams),
-                    SizedBox(height: 16),
-                    _buildTopTeamsCard(context, teams),
-                    SizedBox(height: 16),
-                    _buildAverageScoresCard(context, teams),
-                  ]),
-                ),
-              ),
+          // Build content once to prevent rebuilds
+          final content = Column(
+            children: [
+              _buildScoreDistributionCard(context, teams),
+              SizedBox(height: 16),
+              _buildTopTeamsCard(context, teams),
+              SizedBox(height: 16),
+              _buildAverageScoresCard(context, teams),
             ],
+          );
+
+          return NotificationListener<ScrollNotification>(
+            onNotification: (ScrollNotification scrollInfo) {
+              return true; // Prevents scroll notifications from bubbling up
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: content,
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -313,9 +324,11 @@ class StatisticsScreen extends StatelessWidget {
 
   Widget _buildAverageScoresCard(BuildContext context, List<TeamScore> teams) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final totalScore = teams.isEmpty
+    
+    // Calculate average score
+    final averageScore = teams.isEmpty
         ? 0.0
-        : teams.map((t) => t.totalScore).reduce((a, b) => a + b);
+        : teams.map((t) => t.totalScore).reduce((a, b) => a + b) / teams.length;
 
     return Card(
       margin: EdgeInsets.all(16),
@@ -328,7 +341,7 @@ class StatisticsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Total Score',
+              'Average Score',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -345,13 +358,25 @@ class StatisticsScreen extends StatelessWidget {
                   color: isDark ? Colors.blue.shade900.withOpacity(0.2) : Colors.blue.shade50,
                 ),
                 child: Center(
-                  child: Text(
-                    totalScore.toStringAsFixed(1),
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
-                    ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        averageScore.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                        ),
+                      ),
+                      Text(
+                        'points',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

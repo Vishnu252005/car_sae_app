@@ -628,7 +628,7 @@ class _EventScreenState extends State<EventScreen> {
                                               style: TextStyle(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold,
-                                                color: Theme.of(context).primaryColor,
+                                                color: isDark ? Colors.white : Theme.of(context).primaryColor,
                                               ),
                                             ),
                                           ),
