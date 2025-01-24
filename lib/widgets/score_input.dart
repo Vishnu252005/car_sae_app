@@ -5,11 +5,13 @@ import '../models/team.dart';
 class ScoreInput extends StatefulWidget {
   final TeamWithId team;
   final int numJudges;
+  final int maxScore;
 
   const ScoreInput({
     Key? key,
     required this.team,
     required this.numJudges,
+    this.maxScore = 100,
   }) : super(key: key);
 
   @override
@@ -83,6 +85,19 @@ class _ScoreInputState extends State<ScoreInput> {
                     fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade50,
                   ),
                   onChanged: (value) {
+                    // Validate input and ensure it does not exceed maxScore
+                    double? score = double.tryParse(value);
+                    if (score != null) {
+                      if (score > widget.maxScore) {
+                        // Reset the score to maxScore
+                        score = widget.maxScore.toDouble();
+                        _controllers[index].text = score.toString();
+                        // Show a message indicating the reset
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Score reset to ${widget.maxScore}')),
+                        );
+                      }
+                    }
                     _updateScores();
                   },
                 ),

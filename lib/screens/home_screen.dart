@@ -367,6 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ScoreInput(
                               team: team,
                               numJudges: selectedEventData['numJudges'] ?? 1,
+                              maxScore: 100,
                             ),
                           ],
                         ),
