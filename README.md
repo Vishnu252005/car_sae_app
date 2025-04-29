@@ -1,6 +1,6 @@
 # CARVICE
 
-A new Flutter project.
+An app for customer care and service.
 
 ## Getting Started
 
